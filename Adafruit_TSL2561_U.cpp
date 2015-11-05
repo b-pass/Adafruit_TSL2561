@@ -25,6 +25,7 @@
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "Adafruit_TSL2561_U.h"
 
