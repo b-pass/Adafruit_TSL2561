@@ -36,21 +36,6 @@
 #ifndef _TSL2561_H_
 #define _TSL2561_H_
 
-#if ARDUINO >= 100
- #include <Arduino.h>
-#else
- #include <WProgram.h>
-#endif
-#include <Adafruit_Sensor.h>
-
-#ifdef __AVR_ATtiny85__
-  #include "TinyWireM.h"
-  #define Wire TinyWireM
-#else
-  #include <Wire.h>
-#endif
-
-
 #define TSL2561_VISIBLE 2                   // channel 0 - channel 1
 #define TSL2561_INFRARED 1                  // channel 1
 #define TSL2561_FULLSPECTRUM 0              // channel 0
@@ -177,7 +162,8 @@ tsl2561Gain_t;
 
 class Adafruit_TSL2561_Unified : public Adafruit_Sensor {
  public:
-  Adafruit_TSL2561_Unified(uint8_t addr, int32_t sensorID = -1);
+  Adafruit_TSL2561_Unified(uint8_t addr = 0x39, char const *device = "/dev/i2c-1");
+  ~Adafruit_TSL2561_Unified();
   boolean begin(void);
   
   /* TSL2561 Functions */
@@ -192,12 +178,11 @@ class Adafruit_TSL2561_Unified : public Adafruit_Sensor {
   void getSensor(sensor_t*);
 
  private:
-  int8_t _addr;
+  int _fd;
   boolean _tsl2561Initialised;
   boolean _tsl2561AutoGain;
   tsl2561IntegrationTime_t _tsl2561IntegrationTime;
   tsl2561Gain_t _tsl2561Gain;
-  int32_t _tsl2561SensorID;
   
   void     enable (void);
   void     disable (void);

@@ -19,13 +19,11 @@
     v1.0 - First release (previously TSL2561)
 */
 /**************************************************************************/
-#if defined(__AVR__)
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-#else
-#include "pgmspace.h"
-#endif
 #include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <linux/i2c-dev.h>
+#include <sys/ioctl.h>
 
 #include "Adafruit_TSL2561_U.h"
 
@@ -44,15 +42,9 @@
 /**************************************************************************/
 void Adafruit_TSL2561_Unified::write8 (uint8_t reg, uint32_t value)
 {
-  Wire.beginTransmission(_addr);
-  #if ARDUINO >= 100
-  Wire.write(reg);
-  Wire.write(value & 0xFF);
-  #else
-  Wire.send(reg);
-  Wire.send(value & 0xFF);
-  #endif
-  Wire.endTransmission();
+	uint8_t buf[2] = {reg, value&0xFF};
+	if (write(_fd, buf, 2) != 2)
+		perror("write8");
 }
 
 /**************************************************************************/
@@ -62,20 +54,20 @@ void Adafruit_TSL2561_Unified::write8 (uint8_t reg, uint32_t value)
 /**************************************************************************/
 uint8_t Adafruit_TSL2561_Unified::read8(uint8_t reg)
 {
-  Wire.beginTransmission(_addr);
-  #if ARDUINO >= 100
-  Wire.write(reg);
-  #else
-  Wire.send(reg);
-  #endif
-  Wire.endTransmission();
+	uint8_t buf[2] = {reg, 0};
+	if (write(_fd, buf, 1) != 1)
+	{
+		perror("write inside read8");
+		return -1;
+	}
 
-  Wire.requestFrom(_addr, 1);
-  #if ARDUINO >= 100
-  return Wire.read();
-  #else
-  return Wire.receive();
-  #endif
+	if (read(_fd, &buf, 1) != 1)
+	{
+		perror("read8");
+		return -1;
+	}
+
+	return buf[0];
 }
 
 /**************************************************************************/
@@ -85,27 +77,20 @@ uint8_t Adafruit_TSL2561_Unified::read8(uint8_t reg)
 /**************************************************************************/
 uint16_t Adafruit_TSL2561_Unified::read16(uint8_t reg)
 {
-  uint16_t x; uint16_t t;
+	uint8_t buf[2] = {reg, 0};
+	if (write(_fd, buf, 1) != 1)
+	{
+		perror("write inside read16");
+		return -1;
+	}
 
-  Wire.beginTransmission(_addr);
-  #if ARDUINO >= 100
-  Wire.write(reg);
-  #else
-  Wire.send(reg);
-  #endif
-  Wire.endTransmission();
+	if (read(_fd, &buf, 2) != 2)
+	{
+		perror("read16");
+		return -1;
+	}
 
-  Wire.requestFrom(_addr, 2);
-  #if ARDUINO >= 100
-  t = Wire.read();
-  x = Wire.read();
-  #else
-  t = Wire.receive();
-  x = Wire.receive();
-  #endif
-  x <<= 8;
-  x |= t;
-  return x;
+	return buf[0] | (buf[1] << 8);
 }
 
 /**************************************************************************/
@@ -144,13 +129,13 @@ void Adafruit_TSL2561_Unified::getData (uint16_t *broadband, uint16_t *ir)
   switch (_tsl2561IntegrationTime)
   {
     case TSL2561_INTEGRATIONTIME_13MS:
-      delay(TSL2561_DELAY_INTTIME_13MS);  // KTOWN: Was 14ms
+      usleep(1000*TSL2561_DELAY_INTTIME_13MS);  // KTOWN: Was 14ms
       break;
     case TSL2561_INTEGRATIONTIME_101MS:
-      delay(TSL2561_DELAY_INTTIME_101MS); // KTOWN: Was 102ms
+      usleep(1000*TSL2561_DELAY_INTTIME_101MS); // KTOWN: Was 102ms
       break;
     default:
-      delay(TSL2561_DELAY_INTTIME_402MS); // KTOWN: Was 403ms
+      usleep(1000*TSL2561_DELAY_INTTIME_402MS); // KTOWN: Was 403ms
       break;
   }
 
@@ -173,14 +158,22 @@ void Adafruit_TSL2561_Unified::getData (uint16_t *broadband, uint16_t *ir)
     Constructor
 */
 /**************************************************************************/
-Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, int32_t sensorID) 
+Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, char const *device) 
 {
-  _addr = addr;
   _tsl2561Initialised = false;
-  _tsl2561AutoGain = false;
+  _tsl2561AutoGain = true;
   _tsl2561IntegrationTime = TSL2561_INTEGRATIONTIME_13MS;
   _tsl2561Gain = TSL2561_GAIN_1X;
-  _tsl2561SensorID = sensorID;
+  
+  _fd = open(device, O_RDWR);
+  if (_fd < 0)
+  {
+    perror("open");
+    return;
+  }
+
+  if (ioctl(_fd, I2C_SLAVE, addr) != 0)
+    perror("ioctl I2C_SLAVE");
 }
 
 /*========================================================================*/
@@ -195,8 +188,8 @@ Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, int32_t sensorI
 /**************************************************************************/
 boolean Adafruit_TSL2561_Unified::begin(void) 
 {
-  Wire.begin();
-
+  enable();
+  
   /* Make sure we're actually connected */
   uint8_t x = read8(TSL2561_REGISTER_ID);
   if (!(x & 0x0A))
@@ -471,50 +464,4 @@ uint32_t Adafruit_TSL2561_Unified::calculateLux(uint16_t broadband, uint16_t ir)
 
   /* Signal I2C had no errors */
   return lux;
-}
-
-/**************************************************************************/
-/*!
-    @brief  Gets the most recent sensor event
-*/
-/**************************************************************************/
-bool Adafruit_TSL2561_Unified::getEvent(sensors_event_t *event)
-{
-  uint16_t broadband, ir;
-  
-  /* Clear the event */
-  memset(event, 0, sizeof(sensors_event_t));
-  
-  event->version   = sizeof(sensors_event_t);
-  event->sensor_id = _tsl2561SensorID;
-  event->type      = SENSOR_TYPE_LIGHT;
-  event->timestamp = millis();
-
-  /* Calculate the actual lux value */
-  getLuminosity(&broadband, &ir);
-  event->light = calculateLux(broadband, ir);
-  
-  return true;
-}
-
-/**************************************************************************/
-/*!
-    @brief  Gets the sensor_t data
-*/
-/**************************************************************************/
-void Adafruit_TSL2561_Unified::getSensor(sensor_t *sensor)
-{
-  /* Clear the sensor_t object */
-  memset(sensor, 0, sizeof(sensor_t));
-
-  /* Insert the sensor name in the fixed length char array */
-  strncpy (sensor->name, "TSL2561", sizeof(sensor->name) - 1);
-  sensor->name[sizeof(sensor->name)- 1] = 0;
-  sensor->version     = 1;
-  sensor->sensor_id   = _tsl2561SensorID;
-  sensor->type        = SENSOR_TYPE_LIGHT;
-  sensor->min_delay   = 0;
-  sensor->max_value   = 17000.0;  /* Based on trial and error ... confirm! */
-  sensor->min_value   = 0.0;
-  sensor->resolution  = 1.0;
 }
