@@ -1,3 +1,5 @@
+b-pass Raspberry Pi port from Adafruit original
+
 #Adafruit TSL2561 Light Sensor Driver #
 
 This driver is for the Adafruit TSL2561 Breakout, and is based on Adafruit's Unified Sensor Library (Adafruit_Sensor).
