@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "Adafruit_TSL2561_U.h"
 
@@ -186,7 +187,7 @@ Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, char const *dev
     doing anything else)
 */
 /**************************************************************************/
-boolean Adafruit_TSL2561_Unified::begin(void) 
+bool Adafruit_TSL2561_Unified::begin(void) 
 {
   enable();
   

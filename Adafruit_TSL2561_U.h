@@ -36,6 +36,8 @@
 #ifndef _TSL2561_H_
 #define _TSL2561_H_
 
+#include <stdint.h>
+
 #define TSL2561_VISIBLE 2                   // channel 0 - channel 1
 #define TSL2561_INFRARED 1                  // channel 1
 #define TSL2561_FULLSPECTRUM 0              // channel 0
@@ -160,11 +162,12 @@ typedef enum
 }
 tsl2561Gain_t;
 
-class Adafruit_TSL2561_Unified : public Adafruit_Sensor {
+class Adafruit_TSL2561_Unified
+{
  public:
   Adafruit_TSL2561_Unified(uint8_t addr = 0x39, char const *device = "/dev/i2c-1");
   ~Adafruit_TSL2561_Unified();
-  boolean begin(void);
+  bool begin(void);
   
   /* TSL2561 Functions */
   void enableAutoRange(bool enable);
@@ -172,15 +175,11 @@ class Adafruit_TSL2561_Unified : public Adafruit_Sensor {
   void setGain(tsl2561Gain_t gain);
   void getLuminosity (uint16_t *broadband, uint16_t *ir);
   uint32_t calculateLux(uint16_t broadband, uint16_t ir);
-  
-  /* Unified Sensor API Functions */  
-  bool getEvent(sensors_event_t*);
-  void getSensor(sensor_t*);
 
  private:
   int _fd;
-  boolean _tsl2561Initialised;
-  boolean _tsl2561AutoGain;
+  bool _tsl2561Initialised;
+  bool _tsl2561AutoGain;
   tsl2561IntegrationTime_t _tsl2561IntegrationTime;
   tsl2561Gain_t _tsl2561Gain;
   
