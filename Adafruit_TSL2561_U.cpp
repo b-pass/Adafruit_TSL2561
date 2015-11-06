@@ -60,13 +60,13 @@ uint8_t Adafruit_TSL2561_Unified::read8(uint8_t reg)
 	if (write(_fd, buf, 1) != 1)
 	{
 		perror("write inside read8");
-		return -1;
+		return 0;
 	}
 
 	if (read(_fd, &buf, 1) != 1)
 	{
 		perror("read8");
-		return -1;
+		return 0;
 	}
 
 	return buf[0];
@@ -178,6 +178,11 @@ Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, char const *dev
     perror("ioctl I2C_SLAVE");
 }
 
+Adafruit_TSL2561_Unified::~Adafruit_TSL2561_Unified()
+{
+	close(_fd);
+}
+
 /*========================================================================*/
 /*                           PUBLIC FUNCTIONS                             */
 /*========================================================================*/
@@ -190,8 +195,6 @@ Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, char const *dev
 /**************************************************************************/
 bool Adafruit_TSL2561_Unified::begin(void) 
 {
-  enable();
-  
   /* Make sure we're actually connected */
   uint8_t x = read8(TSL2561_REGISTER_ID);
   if (!(x & 0x0A))
@@ -435,6 +438,5 @@ float Adafruit_TSL2561_Unified::calculateLux(uint16_t broadband, uint16_t ir)
     lux = 0;
   }
   
-  /* Signal I2C had no errors */
   return lux;
 }
