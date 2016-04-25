@@ -381,10 +381,10 @@ uint32_t Adafruit_TSL2561_Unified::calculateLux(uint16_t broadband, uint16_t ir)
       break;
   }
 
-  /* Return 0 lux if the sensor is saturated */
+  /* Return 65535 lux if the sensor is saturated */
   if ((broadband > clipThreshold) || (ir > clipThreshold))
   {
-    return 0;
+    return 65535;
   }
 
   float scale = 1;  
