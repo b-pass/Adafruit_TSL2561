@@ -21,13 +21,13 @@ void stop_signal(int sig)
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, stop_signal);
-	signal(SIGHUP, stop_signal);
+	signal(SIGHUP, SIG_IGN);
 	
 	Adafruit_TSL2561_Unified sensor;
 	
 	if (!sensor.begin())
 	{
-		std::cerr << "Error! " << strerror(errno) << std::endl;
+		perror("sensor begin");
 		return 1;
 	}
 	
@@ -51,17 +51,17 @@ int main(int argc, char *argv[])
 	}
 	
 	addr.sin_addr.s_addr = inet_addr("192.168.1.250");
-	addr.sin_port = htons(10000);
+	addr.sin_port = htons(40000);
 	
 	sensor.setGain(TSL2561_GAIN_16X);
 	sensor.setIntegrationTime(TSL2561_INTEGRATIONTIME_402MS);
 	sensor.enableAutoRange(true);
 
 	while (g_run)
-	{	
+	{
 		float lux = sensor.calculateLux();
 		std::cout << "Lux = " << lux << std::endl;
-		std::cout << uint32_t(lux) << " / " << (uint32_t(lux * 1000) % 1000) << std::endl;
+		//std::cout << uint32_t(lux) << " / " << (uint32_t(lux * 1000) % 1000) << std::endl;
 		
 		uint8_t message[4];
 		*((uint16_t*)&message[0]) = htons(uint16_t(lux));
@@ -70,21 +70,12 @@ int main(int argc, char *argv[])
 		if (sendto(sock, message, 4, 0, (sockaddr*)&addr, sizeof(addr)) <= 0)
 		{
 			perror("sendto");
-			close(sock);
-			return 1;
 		}
 		
 		sleep(1);
 	}
 	
 	close(sock);
-	
-	/*
-        uint16_t ch0 = 0, ch1 = 0;
-	sensor.getLuminosity(&ch0, &ch1);	
-	std::cout << "Ch0 = " << ch0 << ", Ch1 = " << ch1 << ", Lux = " << sensor.calculateLux(ch0, ch1) << std::endl;
-	*/
-	
-
 	return 0;
 }
+
