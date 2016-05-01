@@ -140,44 +140,44 @@ void Adafruit_TSL2561_Unified::getData (uint16_t *broadband, uint16_t *ir)
   /* Enable the device by setting the control bit to 0x03 */
   if (!_lastRead) 
   {
-	enable();
-  
-	/* Wait x ms for ADC to complete */
-	switch (_tsl2561IntegrationTime)
-	{
-	case TSL2561_INTEGRATIONTIME_13MS:
-	  delay(TSL2561_DELAY_INTTIME_13MS);  // KTOWN: Was 14ms
-	  break;
-	case TSL2561_INTEGRATIONTIME_101MS:
-	  delay(TSL2561_DELAY_INTTIME_101MS); // KTOWN: Was 102ms
-	  break;
-	default:
-	  delay(TSL2561_DELAY_INTTIME_402MS); // KTOWN: Was 403ms
-	  break;
-	}
+    enable();
+    
+    /* Wait x ms for ADC to complete */
+    switch (_tsl2561IntegrationTime)
+    {
+    case TSL2561_INTEGRATIONTIME_13MS:
+      delay(TSL2561_DELAY_INTTIME_13MS);  // KTOWN: Was 14ms
+      break;
+    case TSL2561_INTEGRATIONTIME_101MS:
+      delay(TSL2561_DELAY_INTTIME_101MS); // KTOWN: Was 102ms
+      break;
+    default:
+      delay(TSL2561_DELAY_INTTIME_402MS); // KTOWN: Was 403ms
+      break;
+    }
   }
   else
   {
-	uint64_t done = _lastRead;
-	  
-	/* Wait x ms for ADC to complete */
-	switch (_tsl2561IntegrationTime)
-	{
-	case TSL2561_INTEGRATIONTIME_13MS:
-	  done += TSL2561_DELAY_INTTIME_13MS;  // KTOWN: Was 14ms
-	  break;
-	case TSL2561_INTEGRATIONTIME_101MS:
-	  done += TSL2561_DELAY_INTTIME_101MS; // KTOWN: Was 102ms
-	  break;
-	default:
-	  done += TSL2561_DELAY_INTTIME_402MS; // KTOWN: Was 403ms
-	  break;
-	}
-	
-	int64_t wait = done - millis();
-	if (wait >= 0)
-	  delay(wait + 1);
-	_lastRead = millis();
+    uint64_t until = _lastRead;
+      
+    /* Wait x ms for ADC to complete */
+    switch (_tsl2561IntegrationTime)
+    {
+    case TSL2561_INTEGRATIONTIME_13MS:
+      until += TSL2561_DELAY_INTTIME_13MS;  // KTOWN: Was 14ms
+      break;
+    case TSL2561_INTEGRATIONTIME_101MS:
+      until += TSL2561_DELAY_INTTIME_101MS; // KTOWN: Was 102ms
+      break;
+    default:
+      until += TSL2561_DELAY_INTTIME_402MS; // KTOWN: Was 403ms
+      break;
+    }
+    
+    int64_t wait = until - millis();
+    if (wait >= 0 && wait < 1000000)
+      delay(wait + 1);
+    _lastRead = millis();
   }
   
   /* Reads a two byte value from channel 0 (visible + infrared) */
