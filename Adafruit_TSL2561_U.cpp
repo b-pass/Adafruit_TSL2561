@@ -138,22 +138,48 @@ void Adafruit_TSL2561_Unified::disable(void)
 void Adafruit_TSL2561_Unified::getData (uint16_t *broadband, uint16_t *ir)
 {
   /* Enable the device by setting the control bit to 0x03 */
-  enable();
-
-  /* Wait x ms for ADC to complete */
-  switch (_tsl2561IntegrationTime)
+  if (!_lastRead) 
   {
-    case TSL2561_INTEGRATIONTIME_13MS:
-      delay(TSL2561_DELAY_INTTIME_13MS);  // KTOWN: Was 14ms
-      break;
-    case TSL2561_INTEGRATIONTIME_101MS:
-      delay(TSL2561_DELAY_INTTIME_101MS); // KTOWN: Was 102ms
-      break;
-    default:
-      delay(TSL2561_DELAY_INTTIME_402MS); // KTOWN: Was 403ms
-      break;
+	enable();
+  
+	/* Wait x ms for ADC to complete */
+	switch (_tsl2561IntegrationTime)
+	{
+	case TSL2561_INTEGRATIONTIME_13MS:
+	  delay(TSL2561_DELAY_INTTIME_13MS);  // KTOWN: Was 14ms
+	  break;
+	case TSL2561_INTEGRATIONTIME_101MS:
+	  delay(TSL2561_DELAY_INTTIME_101MS); // KTOWN: Was 102ms
+	  break;
+	default:
+	  delay(TSL2561_DELAY_INTTIME_402MS); // KTOWN: Was 403ms
+	  break;
+	}
   }
-
+  else
+  {
+	uint64_t done = _lastRead;
+	  
+	/* Wait x ms for ADC to complete */
+	switch (_tsl2561IntegrationTime)
+	{
+	case TSL2561_INTEGRATIONTIME_13MS:
+	  done += TSL2561_DELAY_INTTIME_13MS;  // KTOWN: Was 14ms
+	  break;
+	case TSL2561_INTEGRATIONTIME_101MS:
+	  done += TSL2561_DELAY_INTTIME_101MS; // KTOWN: Was 102ms
+	  break;
+	default:
+	  done += TSL2561_DELAY_INTTIME_402MS; // KTOWN: Was 403ms
+	  break;
+	}
+	
+	int64_t wait = done - millis();
+	if (wait >= 0)
+	  delay(wait + 1);
+	_lastRead = millis();
+  }
+  
   /* Reads a two byte value from channel 0 (visible + infrared) */
   *broadband = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN0_LOW);
 
@@ -161,7 +187,7 @@ void Adafruit_TSL2561_Unified::getData (uint16_t *broadband, uint16_t *ir)
   *ir = read16(TSL2561_COMMAND_BIT | TSL2561_WORD_BIT | TSL2561_REGISTER_CHAN1_LOW);
 
   /* Turn the device off to save power */
-  disable();
+  if (!_lastRead) disable();
 }
 
 /*========================================================================*/
@@ -181,11 +207,31 @@ Adafruit_TSL2561_Unified::Adafruit_TSL2561_Unified(uint8_t addr, int32_t sensorI
   _tsl2561IntegrationTime = TSL2561_INTEGRATIONTIME_13MS;
   _tsl2561Gain = TSL2561_GAIN_1X;
   _tsl2561SensorID = sensorID;
+  _lastRead = 0;
 }
 
 /*========================================================================*/
 /*                           PUBLIC FUNCTIONS                             */
 /*========================================================================*/
+
+/**************************************************************************/
+/*!
+    Change power saving mode
+*/
+/**************************************************************************/
+void Adafruit_TSL2561_Unified::setPowerSave(bool on)
+{
+	if (on)
+	{
+		_lastRead = 0;
+	}
+	else
+	{
+		_lastRead = millis();
+		if (!_lastRead)
+			++_lastRead;
+	}
+}
 
 /**************************************************************************/
 /*!
@@ -210,7 +256,8 @@ boolean Adafruit_TSL2561_Unified::begin(void)
   setGain(_tsl2561Gain);
 
   /* Note: by default, the device is in power down mode on bootup */
-  disable();
+  enable();
+  if (!_lastRead) disable();
 
   return true;
 }
@@ -236,7 +283,7 @@ void Adafruit_TSL2561_Unified::setIntegrationTime(tsl2561IntegrationTime_t time)
   if (!_tsl2561Initialised) begin();
 
   /* Enable the device by setting the control bit to 0x03 */
-  enable();
+  if (!_lastRead) enable();
 
   /* Update the timing register */
   write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING, time | _tsl2561Gain);
@@ -245,7 +292,10 @@ void Adafruit_TSL2561_Unified::setIntegrationTime(tsl2561IntegrationTime_t time)
   _tsl2561IntegrationTime = time;
 
   /* Turn the device off to save power */
-  disable();
+  if (!_lastRead) 
+	  disable();
+  else
+	  setPowerSave(false); // reset last read time
 }
 
 /**************************************************************************/
@@ -258,7 +308,7 @@ void Adafruit_TSL2561_Unified::setGain(tsl2561Gain_t gain)
   if (!_tsl2561Initialised) begin();
 
   /* Enable the device by setting the control bit to 0x03 */
-  enable();
+  if (!_lastRead) enable();
 
   /* Update the timing register */
   write8(TSL2561_COMMAND_BIT | TSL2561_REGISTER_TIMING, _tsl2561IntegrationTime | gain);
@@ -267,7 +317,10 @@ void Adafruit_TSL2561_Unified::setGain(tsl2561Gain_t gain)
   _tsl2561Gain = gain;
 
   /* Turn the device off to save power */
-  disable();
+  if (!_lastRead)
+	  disable();
+  else
+	  setPowerSave(false); // reset last read time
 }
 
 /**************************************************************************/
@@ -364,7 +417,7 @@ void Adafruit_TSL2561_Unified::getLuminosity (uint16_t *broadband, uint16_t *ir)
     Returns 0 if the sensor is saturated and the values are unreliable.
 */
 /**************************************************************************/
-uint32_t Adafruit_TSL2561_Unified::calculateLux(uint16_t broadband, uint16_t ir)
+float Adafruit_TSL2561_Unified::calculateLux(uint16_t broadband, uint16_t ir)
 {
   /* Make sure the sensor isn't saturated! */
   uint16_t clipThreshold;
@@ -440,7 +493,7 @@ uint32_t Adafruit_TSL2561_Unified::calculateLux(uint16_t broadband, uint16_t ir)
     lux = 0;
   }
   
-  return uint32_t(lux + 0.5);
+  return lux;
 }
 
 
